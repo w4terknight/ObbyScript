@@ -1,0 +1,84 @@
+-- Universal Wall Hop Script with GUI (FE-Safe, Client-Only)
+-- Designed for most obby games in Roblox
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local wallHopEnabled = false
+local wallCheckDistance = 3
+local hopCooldown = 0.4
+local lastHopTime = 0
+
+-- Wait for HumanoidRootPart
+local function getParts()
+	character = player.Character or player.CharacterAdded:Wait()
+	return character:WaitForChild("HumanoidRootPart"), character:WaitForChild("Humanoid")
+end
+
+local rootPart, humanoid = getParts()
+player.CharacterAdded:Connect(function(char)
+	character = char
+	rootPart, humanoid = getParts()
+end)
+
+-- GUI
+pcall(function() player.PlayerGui:FindFirstChild("WallHopToggle"):Destroy() end)
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "WallHopToggle"
+gui.ResetOnSpawn = false
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 120, 0, 40)
+button.Position = UDim2.new(0, 20, 0, 100)
+button.Text = "Wall Hop: OFF"
+button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+button.TextColor3 = Color3.new(1, 1, 1)
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 18
+button.Parent = gui
+
+button.MouseButton1Click:Connect(function()
+	wallHopEnabled = not wallHopEnabled
+	if wallHopEnabled then
+		button.Text = "Wall Hop: ON"
+		button.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+	else
+		button.Text = "Wall Hop: OFF"
+		button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	end
+end)
+
+-- Wall detection (client raycast)
+local function isTouchingWall()
+	if not rootPart then return false end
+	local rayOrigin = rootPart.Position
+	local rayDirection = rootPart.CFrame.LookVector * wallCheckDistance
+
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = {character}
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+
+	local result = workspace:Raycast(rayOrigin, rayDirection, params)
+	return result and result.Instance
+end
+
+-- Wall hop execution
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or not wallHopEnabled then return end
+	if input.KeyCode == Enum.KeyCode.Space then
+		if isTouchingWall() and tick() - lastHopTime > hopCooldown then
+			lastHopTime = tick()
+
+			local bodyVelocity = Instance.new("BodyVelocity")
+			bodyVelocity.Velocity = Vector3.new(0, 60, 0) + -rootPart.CFrame.LookVector * 30
+			bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+			bodyVelocity.P = 1e4
+			bodyVelocity.Parent = rootPart
+
+			Debris:AddItem(bodyVelocity, 0.2)
+		end
+	end
+end)
