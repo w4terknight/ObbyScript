@@ -1,0 +1,110 @@
+-- Universal FE Wall Hop Script for MOBILE (Client-Only, Works in Obbies)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local wallHopEnabled = false
+local wallCheckDistance = 3
+local hopCooldown = 0.4
+local lastHopTime = 0
+
+-- Get Humanoid & RootPart
+local function getParts()
+	character = player.Character or player.CharacterAdded:Wait()
+	return character:WaitForChild("HumanoidRootPart"), character:WaitForChild("Humanoid")
+end
+
+local rootPart, humanoid = getParts()
+player.CharacterAdded:Connect(function(char)
+	character = char
+	rootPart, humanoid = getParts()
+end)
+
+-- Clean previous GUI
+pcall(function()
+	if player.PlayerGui:FindFirstChild("WallHopToggle") then
+		player.PlayerGui.WallHopToggle:Destroy()
+	end
+end)
+
+-- GUI Setup
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "WallHopToggle"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Toggle Button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 130, 0, 40)
+toggleButton.Position = UDim2.new(0, 20, 0, 100)
+toggleButton.Text = "Wall Hop: OFF"
+toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 18
+toggleButton.Parent = gui
+
+-- Hop Button (for jump)
+local hopButton = Instance.new("TextButton")
+hopButton.Size = UDim2.new(0, 120, 0, 60)
+hopButton.Position = UDim2.new(1, -140, 1, -160)
+hopButton.AnchorPoint = Vector2.new(0, 0)
+hopButton.Text = "WALL HOP"
+hopButton.BackgroundColor3 = Color3.fromRGB(30, 130, 255)
+hopButton.TextColor3 = Color3.new(1, 1, 1)
+hopButton.Font = Enum.Font.SourceSansBold
+hopButton.TextSize = 20
+hopButton.Visible = true
+hopButton.Parent = gui
+
+-- Toggle Wall Hop ON/OFF
+toggleButton.MouseButton1Click:Connect(function()
+	wallHopEnabled = not wallHopEnabled
+	if wallHopEnabled then
+		toggleButton.Text = "Wall Hop: ON"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+	else
+		toggleButton.Text = "Wall Hop: OFF"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	end
+end)
+
+-- Check if touching wall
+local function isTouchingWall()
+	if not rootPart then return false end
+	local rayOrigin = rootPart.Position
+	local rayDirection = rootPart.CFrame.LookVector * wallCheckDistance
+
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = {character}
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+
+	local result = workspace:Raycast(rayOrigin, rayDirection, params)
+	return result and result.Instance
+end
+
+-- Wall Hop Function (FE-safe)
+local function doWallHop()
+	if not wallHopEnabled then return end
+	if tick() - lastHopTime < hopCooldown then return end
+	if not isTouchingWall() then return end
+
+	lastHopTime = tick()
+
+	if humanoid:GetState() ~= Enum.HumanoidStateType.Jumping then
+		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+	end
+
+	task.wait(0.05) -- short delay
+	if rootPart then
+		rootPart.AssemblyLinearVelocity = Vector3.new(0, 60, 0) + -rootPart.CFrame.LookVector * 30
+	end
+end
+
+-- Button for mobile
+hopButton.MouseButton1Click:Connect(function()
+	doWallHop()
+end)
